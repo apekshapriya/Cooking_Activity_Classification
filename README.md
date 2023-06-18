@@ -138,7 +138,7 @@ $ python main.py
 
 #### Note:
 
-We can see that model is able to pick up the three classes but faces confusion with stir and nothing classes. This can be improved by carefully adding the samples for both the classes that differentiates them.
+After training the model, it can be seen that the model is able to pick up the three classes but faces confusion with stir and nothing classes. This can be improved by carefully adding the samples for both the classes that differentiates them.
 
 
 ## Experiment Tracking and metrics:
