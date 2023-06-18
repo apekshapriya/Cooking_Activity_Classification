@@ -77,6 +77,7 @@ The model is based on architecture of resnet50 backbone originaly trained on Ima
 
 
 Updates that were made to the architecture:
+
     The top layer was removed
     The parameters of the last 4 layers were kept trainable (4 was chosen after iterative experiment)
     Average Pooling and Dropout Layer were added after the second last layer
