@@ -9,7 +9,7 @@
 $ git clone https://github.com/apekshapriya/Cooking_Activity_Classification.git
 
 $ cd Cooking_Activity_Classification
-
+```
 
 ### Create a new environment through venv and activate it
 
@@ -34,11 +34,15 @@ Manually labelled and created dataset from EPIC-KITCHEN-100 by choosing random i
 Some detais of the final dataset:
 
 Total samples:  291
+
 Stir Samples: 127
+
 Add Ingredients Sample: 87
+
 Nothing Samples:  77
 
-If required the dataset that was used for training can be accessed from [here](https://drive.google.com/drive/folders/1QWs9cNZ-_InbOgmaW0jwdbA54rjILfs-?usp=sharing)
+
+If required, dataset that was used for training can be accessed from [here](https://drive.google.com/drive/folders/1QWs9cNZ-_InbOgmaW0jwdbA54rjILfs-?usp=sharing)
 
 To create the dataset:
 
@@ -61,7 +65,7 @@ To create the dataset:
 
 #### Note: 
 
-If we want to better the model furthermore, the dataset can be used wisely. 
+If we want to better the model further, the dataset can be used wisely. 
 
 
 ## Model
