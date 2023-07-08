@@ -25,7 +25,7 @@ def process_frame(frame):
 
 def predict(image, artifacts):
     frame = process_frame(image)
-    model = artifacts['model']
+    model = artifacts["model"]
     preds = model.predict(np.expand_dims(frame, axis=0))[0]
     Q.append(preds)
 
@@ -38,8 +38,7 @@ def predict(image, artifacts):
 
 
 def predict_video(input_video, output_video, artifacts):
-
-    model = artifacts['model']
+    model = artifacts["model"]
 
     vs = cv2.VideoCapture(input_video)
     writer = None
@@ -61,7 +60,7 @@ def predict_video(input_video, output_video, artifacts):
         # ordering, resize the frame to a fixed 224x224, and then
         # perform mean subtraction
         output = frame.copy()
-        
+
         frame = process_frame(frame)
         # make predictions on the frame and then update the predictions
         # queue
@@ -74,15 +73,15 @@ def predict_video(input_video, output_video, artifacts):
         i = np.argmax(results)
         label = args.classes_list[i]
         text = "activity: {}".format(label)
-        cv2.putText(output, text, (35, 50), cv2.FONT_HERSHEY_SIMPLEX,
-            1.25, (0, 255, 0), 5)
+        cv2.putText(
+            output, text, (35, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.25, (0, 255, 0), 5
+        )
 
         # check if the video writer is None
         if writer is None:
             # initialize our video writer
             fourcc = cv2.VideoWriter_fourcc(*"MJPG")
-            writer = cv2.VideoWriter(output_video, fourcc, 30,
-                (W, H), True)
+            writer = cv2.VideoWriter(output_video, fourcc, 30, (W, H), True)
         # write the output frame to disk
         writer.write(output)
         # show the output image

@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, File, UploadFile
-from http import HTTPStatus 
+from http import HTTPStatus
 from typing import Dict
 from functools import wraps
 
@@ -17,30 +17,27 @@ from PIL import Image
 from io import BytesIO
 
 app = FastAPI(
-        title="Cooking Activity Classification",
-        description = "Classify the cooking activity performed from images",
-        version=0.1
-
+    title="Cooking Activity Classification",
+    description="Classify the cooking activity performed from images",
+    version=0.1,
 )
 
 
 def construct_response(f):
-
     @wraps(f)
-    async def wrap(request:Request, *args, **kwargs):
+    async def wrap(request: Request, *args, **kwargs):
         results = await f(request, *args, **kwargs)
         response = {}
 
-        response['message'] = results['message']
+        response["message"] = results["message"]
 
-        response['status-code'] = results['status-code']
-        response['method'] = request.method
-        response['url'] = request.url._url
+        response["status-code"] = results["status-code"]
+        response["method"] = request.method
+        response["url"] = request.url._url
 
-        if 'data' in results:
-            response['data'] = results['data']
+        if "data" in results:
+            response["data"] = results["data"]
         return response
-
 
     return wrap
 
@@ -48,20 +45,16 @@ def construct_response(f):
 @app.get("/")
 @construct_response
 def _index(request: Request) -> Dict:
-
     response = {
-                    "message": HTTPStatus.OK.phrase,
-                    "status-code": HTTPStatus.OK,
-                    "data": {}
-
-                }
+        "message": HTTPStatus.OK.phrase,
+        "status-code": HTTPStatus.OK,
+        "data": {},
+    }
     return response
-
 
 
 @app.on_event("startup")
 def load_artifacts():
-
     global artifacts
 
     artifacts = get_artifacts("baselines_3")
@@ -71,8 +64,8 @@ def load_artifacts():
 
 @app.get("/performance", tags=["performance"])
 @construct_response
-def _performance(request:Request, filter:str=None) -> Dict:
-    performance = artifacts['performance']
+def _performance(request: Request, filter: str = None) -> Dict:
+    performance = artifacts["performance"]
     logging.info(performance)
 
     data = {"performance": performance.get(filter, performance)}
@@ -80,15 +73,14 @@ def _performance(request:Request, filter:str=None) -> Dict:
     response = {
         "message": HTTPStatus.OK.phrase,
         "status-code": HTTPStatus.OK,
-        "data" : data
+        "data": data,
     }
     return response
 
 
 @app.post("/predict", tags=["predictions"])
 @construct_response
-async def _predict(request: Request, image: UploadFile=File(...)):
-    
+async def _predict(request: Request, image: UploadFile = File(...)):
     image_bytes = await image.read()
     image = Image.open(BytesIO(image_bytes))
     image = np.array(image)
@@ -98,6 +90,6 @@ async def _predict(request: Request, image: UploadFile=File(...)):
     response = {
         "message": HTTPStatus.OK.phrase,
         "status-code": HTTPStatus.OK,
-        "data": label
+        "data": label,
     }
     return response

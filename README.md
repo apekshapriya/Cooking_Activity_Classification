@@ -16,7 +16,7 @@ $ cd Cooking_Activity_Classification
 ``` python
 $ python3 -m venv venv_ac
 $ source venv_ac/bin/activate
-``` 
+```
 
 ### Further, all the dependencies are listed in requirements.txt and can be installed by:
 
@@ -27,7 +27,7 @@ $ python3 -m pip install -e .
 ```
 
 ## Dataset:
- 
+
 Manually labelled and created dataset from EPIC-KITCHEN-100 by choosing random images for all the three classes "add_ingredients", "stir" and "nothing" and then labelled them. Kept on increasing the dataset until the model started picking up the different activities
 
 
@@ -47,7 +47,7 @@ If required, dataset that was used for training can be accessed from [here](http
 To create the dataset:
 
     The structure of the dataset is shown below:
-    
+
     data:
         add_ingredients
                 frame1.jpg
@@ -63,9 +63,9 @@ To create the dataset:
                 frame10.jpg
 
 
-#### Note: 
+#### Note:
 
-If we want to better the model further, the dataset can be used wisely. 
+If we want to better the model further, the dataset can be used wisely.
 
 
 ## Model
@@ -73,7 +73,7 @@ If we want to better the model further, the dataset can be used wisely.
 The model's checkpoint can be downloaded from [here](https://drive.google.com/drive/folders/1ad8UC83DibC9QWPH1lm1sD3ypU7ovV02?usp=sharing).
 
 
-The model is based on architecture of resnet50 backbone originaly trained on ImageNet dataset for classification. 
+The model is based on architecture of resnet50 backbone originaly trained on ImageNet dataset for classification.
 
 
 Updates that were made to the architecture:
@@ -107,14 +107,14 @@ The config file is given to configure paths and models hyperparameters for predi
     model_checkpoint = "model/activity.model"
     input_video =  "One-PotChickenFajitaPasta.mp4"
     output_video = "output.avi"
-    size = 1 
+    size = 1
 
 
 #### Run the following command
 
 ```python
 $ cd activity_classifier
-$ python predict.py 
+$ python predict.py
 
 ```
 
@@ -132,7 +132,7 @@ $ python predict.py
 
 ```python
 $ cd activity_classifier
-$ python main.py 
+$ python main.py
 ```
 
 
@@ -149,7 +149,7 @@ The plot for Loss and Accuracy is shown below
 
 
 The confusion matrix is shown below.
-                
+
                     precision    recall  f1-score   support
 
     add_ingredients       0.78      0.78      0.78         9

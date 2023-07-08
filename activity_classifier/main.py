@@ -2,7 +2,8 @@ import os
 import cv2
 import math
 import matplotlib
-matplotlib.use('Agg')  # Use the Agg backend
+
+matplotlib.use("Agg")  # Use the Agg backend
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -28,8 +29,6 @@ from pathlib import Path
 from config import *
 
 
-
-
 # Set seed
 seed_constant = args.seed
 np.random.seed(seed_constant)
@@ -38,6 +37,8 @@ tf.random.set_seed(seed_constant)
 
 # Set up directories
 os.makedirs(args.plot_metrics_path, exist_ok=True)
+
+
 def frames_extraction(video_path):
     """
     Extract frames from a video path.
@@ -65,7 +66,7 @@ def create_dataset():
     features = []
     labels = []
     for class_index, class_name in enumerate(args.classes_list):
-        print(f'Extracting Data of Class: {class_name}')
+        print(f"Extracting Data of Class: {class_name}")
         folders_list = os.listdir(os.path.join(args.dataset_directory, class_name))
         for folder in folders_list:
             if os.path.isfile(os.path.join(args.dataset_directory, class_name, folder)):
@@ -86,7 +87,11 @@ def create_model():
     Create the model architecture based on ResNet50.
     :return: Compiled Keras model.
     """
-    baseModel = ResNet50(weights="imagenet", include_top=False, input_tensor=Input(shape=(args.image_width, args.image_height, 3)))
+    baseModel = ResNet50(
+        weights="imagenet",
+        include_top=False,
+        input_tensor=Input(shape=(args.image_width, args.image_height, 3)),
+    )
     headModel = baseModel.output
     headModel = AveragePooling2D(pool_size=(7, 7))(headModel)
     headModel = Flatten(name="flatten")(headModel)
@@ -116,17 +121,32 @@ def train():
     # Create dataset
     data, labels = create_dataset()
 
-    class_weights = compute_class_weight(class_weight="balanced", classes=np.unique(labels), y=labels)
+    class_weights = compute_class_weight(
+        class_weight="balanced", classes=np.unique(labels), y=labels
+    )
     class_weights = dict(zip(np.unique(labels), class_weights))
     one_hot_encoded_labels = to_categorical(labels)
-    trainX, testX, trainY, testY = train_test_split(data, one_hot_encoded_labels, test_size=0.10, stratify=labels, random_state=42, shuffle=True)
+    trainX, testX, trainY, testY = train_test_split(
+        data,
+        one_hot_encoded_labels,
+        test_size=0.10,
+        stratify=labels,
+        random_state=42,
+        shuffle=True,
+    )
 
     # Create and compile the model
     model = create_model()
     print("[INFO] Compiling model...")
-    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=tf.keras.optimizers.Adam(lr=args.lr), metrics=[tf.keras.metrics.CategoricalAccuracy()])
+    model.compile(
+        loss=tf.keras.losses.CategoricalCrossentropy(),
+        optimizer=tf.keras.optimizers.Adam(lr=args.lr),
+        metrics=[tf.keras.metrics.CategoricalAccuracy()],
+    )
 
-    early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+    early_stopping = EarlyStopping(
+        monitor="val_loss", patience=5, restore_best_weights=True
+    )
 
     # Train the model
     mlflow.keras.autolog()
@@ -139,7 +159,7 @@ def train():
         epochs=args.epochs,
         batch_size=args.batch_size,
         class_weight=class_weights,
-        callbacks=[early_stopping] 
+        callbacks=[early_stopping],
     )
 
     print("[INFO] Serializing network...")
@@ -147,7 +167,12 @@ def train():
 
     print("[INFO] Evaluating network...")
     predictions = model.predict(x=testX.astype("float32"), batch_size=args.batch_size)
-    report = classification_report(testY.argmax(axis=1), predictions.argmax(axis=1), target_names=args.classes_list, output_dict=True)
+    report = classification_report(
+        testY.argmax(axis=1),
+        predictions.argmax(axis=1),
+        target_names=args.classes_list,
+        output_dict=True,
+    )
     print(report)
 
     # Plot the training loss and accuracy
@@ -163,18 +188,18 @@ def train():
     plt.ylabel("Loss/Accuracy")
     plt.legend(loc="lower left")
     plot_path = "save_metrics.png"
-    
+
     plt.savefig(plot_path)
 
     return {
-        'args': args,
-        'model': model,
-        'performance': {
-            'precision': report['macro avg']['precision'],
-            'recall': report['macro avg']['recall'],
-            'f1-score': report['macro avg']['f1-score'],
-            'accuracy': report['accuracy']
-        }
+        "args": args,
+        "model": model,
+        "performance": {
+            "precision": report["macro avg"]["precision"],
+            "recall": report["macro avg"]["recall"],
+            "f1-score": report["macro avg"]["f1-score"],
+            "accuracy": report["accuracy"],
+        },
     }
 
 
@@ -183,12 +208,16 @@ if __name__ == "__main__":
     with mlflow.start_run(run_name="start_exp_1"):
         # Train and save metrics
         artifacts = train()
-        mlflow.log_metrics({'precision': artifacts['performance']['precision'],
-                            'recall': artifacts['performance']['recall'],
-                            'f1-score': artifacts['performance']['f1-score'],
-                            'accuracy': artifacts['performance']['accuracy']})
+        mlflow.log_metrics(
+            {
+                "precision": artifacts["performance"]["precision"],
+                "recall": artifacts["performance"]["recall"],
+                "f1-score": artifacts["performance"]["f1-score"],
+                "accuracy": artifacts["performance"]["accuracy"],
+            }
+        )
         with tempfile.TemporaryDirectory() as dp:
-            artifacts['model'].save(Path(dp, "activity.model"), save_format="h5")
-            save_dict(artifacts['performance'], Path(dp, "performance.json"))
+            artifacts["model"].save(Path(dp, "activity.model"), save_format="h5")
+            save_dict(artifacts["performance"], Path(dp, "performance.json"))
             mlflow.log_artifacts(dp)
         mlflow.log_params(vars(artifacts["args"]))
