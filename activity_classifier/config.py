@@ -7,11 +7,11 @@ class  args:
     BASE_DIR = Path(__file__).parent.parent
     
     dataset_directory = Path(BASE_DIR,"data/train/")
-    plot_metrics_path = Path(BASE_DIR,"plots/save_metrics.png") 
+    plot_metrics_path = Path(BASE_DIR,"plots/") 
 
     classes_list = ["add_ingredients", "stir","nothing"]
 
-    epochs = 5
+    epochs = 1
     lr = 1e-5
     batch_size = 16
     image_height, image_width = 224, 224

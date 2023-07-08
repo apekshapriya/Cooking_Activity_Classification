@@ -1,226 +1,157 @@
 import os
 import cv2
 import math
+import matplotlib
+matplotlib.use('Agg')  # Use the Agg backend
+
 import matplotlib.pyplot as plt
 import numpy as np
 import json
-
 import pickle
 import random
 import numpy as np
 import datetime as dt
 import tensorflow as tf
 from collections import deque
-import matplotlib.pyplot as plt
-
-from sklearn.model_selection import train_test_split
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 from sklearn.utils import compute_class_weight
-
 from tensorflow.keras.layers import *
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, Model
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.utils import plot_model
-
-from tensorflow.keras.layers import AveragePooling2D
 from tensorflow.keras.applications import ResNet50
-from tensorflow.keras.layers import Dropout
-from tensorflow.keras.layers import Flatten
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import Input
-from tensorflow.keras.models import Model
-
+from tensorflow.keras.utils import plot_model
 import mlflow
 import tempfile
+from pathlib import Path
 from config import *
 
-# mlflow.tensorflow.autolog()
-mlflow.set_experiment(experiment_name="baselines_3")
 
 
+
+# Set seed
 seed_constant = args.seed
 np.random.seed(seed_constant)
 random.seed(seed_constant)
 tf.random.set_seed(seed_constant)
 
-epochs = args.epochs
-model_save = args.model_save_path
-plot_path = args.plot_metrics_path
-image_height, image_width = args.image_height, args.image_width
-dataset_directory = args.dataset_directory
-classes_list = args.classes_list
-lr = args.lr
-batch_size = args.batch_size
-
-os.makedirs(plot_path, exist_ok=True)
-
-
+# Set up directories
+os.makedirs(args.plot_metrics_path, exist_ok=True)
 def frames_extraction(video_path):
-    # Empty List declared to store frames
+    """
+    Extract frames from a video path.
+    :param video_path: Path to the video.
+    :return: List of frames extracted from the video.
+    """
     mean = np.array([123.68, 116.779, 103.939][::1], dtype="float32")
-
     frames_list = []
-
     images = os.listdir(video_path)
     for img in images:
         frame = cv2.imread(os.path.join(video_path, img))
-    
-        # Resize the Frame to fixed Dimensions
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        frame = cv2.resize(frame, (image_height, image_width))
-    
-        frame = frame-mean
+        frame = cv2.resize(frame, (args.image_height, args.image_width))
+        frame = frame - mean
         frames_list.append(frame)
-
-    # returning the frames list 
     return frames_list
 
 
-
 def create_dataset():
-
-    # Declaring Empty Lists to store the features and labels values.
-    temp_features = [] 
+    """
+    Create the dataset by extracting frames from videos in the specified directory.
+    :return: Features (frames) and labels arrays.
+    """
+    temp_features = []
     features = []
     labels = []
-    
-    # Iterating through all the classes mentioned in the classes list
-    for class_index, class_name in enumerate(classes_list):
+    for class_index, class_name in enumerate(args.classes_list):
         print(f'Extracting Data of Class: {class_name}')
-        
-        # Getting the list of  folders present in the specific class name directory
-        folders_list = os.listdir(os.path.join(dataset_directory, class_name))
-
-        # Iterating through all the folders present in the folders list
+        folders_list = os.listdir(os.path.join(args.dataset_directory, class_name))
         for folder in folders_list:
- 
-            if  os.path.isfile(os.path.join(dataset_directory, class_name, folder)):
+            if os.path.isfile(os.path.join(args.dataset_directory, class_name, folder)):
                 continue
-
-            # Construct the complete folder path
-            folder_path = os.path.join(dataset_directory, class_name, folder)
-
-            # Calling the frame_extraction method for every folder path
+            folder_path = os.path.join(args.dataset_directory, class_name, folder)
             frames = frames_extraction(folder_path)
-
-            # Appending the frames to a temporary list.
             temp_features.extend(frames)
-        
-        # Adding frames to the features list
         features.extend(temp_features)
-
-        # Adding number of labels to the labels list
         labels.extend([class_index] * len(temp_features))
-        
-        # Emptying the temp_features list so it can be reused to store all frames of the next class.
         temp_features.clear()
-
-    # Converting the features and labels lists to numpy arrays
-    features = np.asarray(features)    
-    labels = np.array(labels) 
-   
+    features = np.asarray(features)
+    labels = np.array(labels)
     return features, labels
 
 
-# Let's create a function that will construct our model
 def create_model():
-
-    # We will use a Sequential model for model construction
-    baseModel = ResNet50(weights="imagenet", include_top=False,
-	input_tensor=Input(shape=(image_width, image_height, 3)))  # 224, 224, since resnet accepts this dim
-    # construct the head of the model that will be placed on top of the
-    # the base model
+    """
+    Create the model architecture based on ResNet50.
+    :return: Compiled Keras model.
+    """
+    baseModel = ResNet50(weights="imagenet", include_top=False, input_tensor=Input(shape=(args.image_width, args.image_height, 3)))
     headModel = baseModel.output
     headModel = AveragePooling2D(pool_size=(7, 7))(headModel)
     headModel = Flatten(name="flatten")(headModel)
-  
     headModel = Dropout(0.5)(headModel)
-    headModel = Dense(len(classes_list), activation="softmax")(headModel)
-
-    # place the head FC model on top of the base model (this will become
-    # the actual model we will train)
+    headModel = Dense(len(args.classes_list), activation="softmax")(headModel)
     model = Model(inputs=baseModel.input, outputs=headModel)
-    # loop over all layers in the base model and freeze them so they will
-    # *not* be updated during the training process. The last 4 layers will be trainable
     for layer in baseModel.layers[:-4]:
         layer.trainable = False
-
     return model
 
-def save_model():
-    pass
 
 def save_dict(d, filepath):
-    """Save dict to a json file."""
+    """
+    Save a dictionary to a JSON file.
+    :param d: Dictionary to save.
+    :param filepath: Path to the JSON file.
+    """
     with open(filepath, "w") as fp:
         json.dump(d, indent=2, sort_keys=False, fp=fp)
 
 
-def load_dict(filepath):
-
-    with open(filepath):
-        d = json.load(filepath)
-
-    return d
-
-
 def train():
-    # create dataset
-
+    """
+    Train the model using the dataset and evaluate its performance.
+    :return: Dictionary containing trained model, performance metrics, and arguments.
+    """
+    # Create dataset
     data, labels = create_dataset()
 
-    class_weights = compute_class_weight(class_weight = "balanced",
-                                            classes = np.unique(labels),
-                                            y = labels)
-
-
+    class_weights = compute_class_weight(class_weight="balanced", classes=np.unique(labels), y=labels)
     class_weights = dict(zip(np.unique(labels), class_weights))
-
     one_hot_encoded_labels = to_categorical(labels)
+    trainX, testX, trainY, testY = train_test_split(data, one_hot_encoded_labels, test_size=0.10, stratify=labels, random_state=42, shuffle=True)
 
-    (trainX, testX, trainY, testY) = train_test_split(data, one_hot_encoded_labels,
-        test_size=0.10, stratify=labels, random_state=42, shuffle=True)
-
-
-    # Calling the create_model method
+    # Create and compile the model
     model = create_model()
+    print("[INFO] Compiling model...")
+    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=tf.keras.optimizers.Adam(lr=args.lr), metrics=[tf.keras.metrics.CategoricalAccuracy()])
 
-    print("[INFO] compiling model...")
+    early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
 
-    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=tf.keras.optimizers.Adam(lr=1e-5),
-        metrics=[tf.keras.metrics.CategoricalAccuracy()])
-
-    # train the head of the network for a few epochs (all other layers
-    # are frozen except the last 4) -- this will allow the new FC layers to start to become
-    # initialized with actual "learned" values versus pure random
-
+    # Train the model
     mlflow.keras.autolog()
-    print("[INFO] training head...")
-
+    print("[INFO] Training model...")
     H = model.fit(
-        x = trainX,
-        y = trainY,
-        steps_per_epoch=len(trainX) // batch_size,
-        validation_split = 0.15,
-        epochs=epochs,
-        batch_size = batch_size,
-        class_weight=class_weights)
+        x=trainX,
+        y=trainY,
+        steps_per_epoch=len(trainX) // args.batch_size,
+        validation_split=0.15,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        class_weight=class_weights,
+        callbacks=[early_stopping] 
+    )
 
+    print("[INFO] Serializing network...")
+    print("Model trained successfully!")
 
-    print("[INFO] serializing network...")
-    print("Model Trained Successfully!")
-
-    print("[INFO] evaluating network...")
-    predictions = model.predict(x=testX.astype("float32"), batch_size=batch_size)
-    report = classification_report(testY.argmax(axis=1),
-        predictions.argmax(axis=1), target_names=classes_list, output_dict=True)
+    print("[INFO] Evaluating network...")
+    predictions = model.predict(x=testX.astype("float32"), batch_size=args.batch_size)
+    report = classification_report(testY.argmax(axis=1), predictions.argmax(axis=1), target_names=args.classes_list, output_dict=True)
     print(report)
-    # print(report['macro avg'])
 
-    # plot the training loss and accuracy
-    N =  epochs
+    # Plot the training loss and accuracy
+    N = args.epochs
     plt.style.use("ggplot")
     plt.figure()
     plt.plot(np.arange(0, N), H.history["loss"], label="train_loss")
@@ -231,39 +162,33 @@ def train():
     plt.xlabel("Epoch #")
     plt.ylabel("Loss/Accuracy")
     plt.legend(loc="lower left")
-    plt.savefig("save_plot.png")
+    plot_path = "save_metrics.png"
+    
+    plt.savefig(plot_path)
 
     return {
         'args': args,
         'model': model,
-
         'performance': {
-            'precision':report['macro avg']['precision'],
+            'precision': report['macro avg']['precision'],
             'recall': report['macro avg']['recall'],
             'f1-score': report['macro avg']['f1-score'],
             'accuracy': report['accuracy']
-                    }
-            }
+        }
+    }
 
-if __name__ == """__main__""":
-    
+
+if __name__ == "__main__":
+    mlflow.set_experiment(experiment_name="baselines_3")
     with mlflow.start_run(run_name="start_exp_1"):
-
-        # training and saving metrics
+        # Train and save metrics
         artifacts = train()
-
         mlflow.log_metrics({'precision': artifacts['performance']['precision'],
                             'recall': artifacts['performance']['recall'],
                             'f1-score': artifacts['performance']['f1-score'],
                             'accuracy': artifacts['performance']['accuracy']})
-
         with tempfile.TemporaryDirectory() as dp:
-
-                artifacts['model'].save(Path(dp, "activity.model"), save_format="h5")
-                save_dict(artifacts['performance'], Path(dp, "performance.json"))
-
-                mlflow.log_artifacts(dp)
-
+            artifacts['model'].save(Path(dp, "activity.model"), save_format="h5")
+            save_dict(artifacts['performance'], Path(dp, "performance.json"))
+            mlflow.log_artifacts(dp)
         mlflow.log_params(vars(artifacts["args"]))
-
-    
