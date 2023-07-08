@@ -3,6 +3,7 @@ import cv2
 import math
 import matplotlib.pyplot as plt
 import numpy as np
+import json
 
 import pickle
 import random
@@ -31,7 +32,12 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Input
 from tensorflow.keras.models import Model
 
+import mlflow
+import tempfile
 from config import *
+
+# mlflow.tensorflow.autolog()
+mlflow.set_experiment(experiment_name="baselines_3")
 
 
 seed_constant = args.seed
@@ -143,6 +149,22 @@ def create_model():
 
     return model
 
+def save_model():
+    pass
+
+def save_dict(d, filepath):
+    """Save dict to a json file."""
+    with open(filepath, "w") as fp:
+        json.dump(d, indent=2, sort_keys=False, fp=fp)
+
+
+def load_dict(filepath):
+
+    with open(filepath):
+        d = json.load(filepath)
+
+    return d
+
 
 def train():
     # create dataset
@@ -174,13 +196,13 @@ def train():
     # are frozen except the last 4) -- this will allow the new FC layers to start to become
     # initialized with actual "learned" values versus pure random
 
-
+    mlflow.keras.autolog()
     print("[INFO] training head...")
 
     H = model.fit(
         x = trainX,
         y = trainY,
-        steps_per_epoch=len(trainX) // 32,
+        steps_per_epoch=len(trainX) // batch_size,
         validation_split = 0.15,
         epochs=epochs,
         batch_size = batch_size,
@@ -188,13 +210,14 @@ def train():
 
 
     print("[INFO] serializing network...")
-    model.save(model_save, save_format="h5")
     print("Model Trained Successfully!")
 
     print("[INFO] evaluating network...")
-    predictions = model.predict(x=testX.astype("float32"), batch_size=32)
-    print(classification_report(testY.argmax(axis=1),
-        predictions.argmax(axis=1), target_names=classes_list))
+    predictions = model.predict(x=testX.astype("float32"), batch_size=batch_size)
+    report = classification_report(testY.argmax(axis=1),
+        predictions.argmax(axis=1), target_names=classes_list, output_dict=True)
+    print(report)
+    # print(report['macro avg'])
 
     # plot the training loss and accuracy
     N =  epochs
@@ -210,6 +233,37 @@ def train():
     plt.legend(loc="lower left")
     plt.savefig("save_plot.png")
 
+    return {
+        'args': args,
+        'model': model,
+
+        'performance': {
+            'precision':report['macro avg']['precision'],
+            'recall': report['macro avg']['recall'],
+            'f1-score': report['macro avg']['f1-score'],
+            'accuracy': report['accuracy']
+                    }
+            }
 
 if __name__ == """__main__""":
-    train()
+    
+    with mlflow.start_run(run_name="start_exp_1"):
+
+        # training and saving metrics
+        artifacts = train()
+
+        mlflow.log_metrics({'precision': artifacts['performance']['precision'],
+                            'recall': artifacts['performance']['recall'],
+                            'f1-score': artifacts['performance']['f1-score'],
+                            'accuracy': artifacts['performance']['accuracy']})
+
+        with tempfile.TemporaryDirectory() as dp:
+
+                artifacts['model'].save(Path(dp, "activity.model"), save_format="h5")
+                save_dict(artifacts['performance'], Path(dp, "performance.json"))
+
+                mlflow.log_artifacts(dp)
+
+        mlflow.log_params(vars(artifacts["args"]))
+
+    
